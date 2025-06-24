@@ -1,199 +1,226 @@
-import "./App.css";
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import "./App.css";
+import { useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { format } from "date-fns";
 
 function App() {
-  // const [count, setcount] = useState(100);
-  // const [name, setname] = useState({ firstName: "", lastName: "" });
   const [inputValue, setinputValue] = useState("");
   const [text, setText] = useState([]);
-  const [editText, seteditText] = useState(null);
-  const [completed, setcompleted] = useState([]);
+  const [editMode, seteditMode] = useState(null);
+  const [completed, setCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
-  const handleChange = (e) => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const isInputEmpty = inputValue.trim() === "";
+  const handleInputChange = (e) => {
     setinputValue(e.target.value);
+    // console.log(e.target.value);
   };
-
-  const handleComplete = (index) => {
-    if (completed.includes(index)) {
-      setcompleted(completed.filter((i) => i !== index));
-    } else {
-      setcompleted([...completed, index]);
-    }
-  };
-
-  const handleUndo = (index) => {
-    handleComplete(index); // just toggle
-  };
-
-  const handleClick = () => {
-    if (inputValue.trim() === "") {
-      alert("text should not be empty");
+  const handleAddItem = () => {
+    if (isInputEmpty) {
+      alert("value should not be empty");
       return;
     }
-
-    if (editText != null) {
-      const edited = [...text];
-      edited[editText] = { ...edited[editText], text: inputValue };
-      setText(edited);
-      seteditText(null);
+    if (editMode !== null) {
+      const updatedText = text.map((item) => {
+        if (item.id === editMode) {
+          return { ...item, text: inputValue };
+        } else {
+          return item;
+        }
+      });
+      setText(updatedText);
+      seteditMode(null);
     } else {
       setText([
         ...text,
-        { id: uuidv4(), text: inputValue, createdAt: new Date() },
+        {
+          id: uuidv4(),
+          text: inputValue,
+          dueDate: selectedDate,
+          createdAt: new Date(),
+          completedAt: null,
+        },
       ]);
+      setSelectedDate(new Date());
     }
 
     setinputValue("");
   };
-
-  const handleEdit = (index) => {
-    setinputValue(text[index].text);
-    seteditText(index);
+  const handleCompleteBtn = (completeId) => {
+    if (!completed.includes(completeId)) {
+      setCompleted([...completed, completeId]);
+      setText((prevText) =>
+        prevText.map((item) =>
+          item.id === completeId ? { ...item, completedAt: new Date() } : item
+        )
+      );
+    }
   };
 
-  const handleDelete = (index) => {
-    const newArr = [...text];
-    newArr.splice(index, 1);
-    setText(newArr);
-
-    // Clean up completed indexes
-    const updatedCompleted = completed
-      .filter((i) => i !== index)
-      .map((i) => (i > index ? i - 1 : i));
-    setcompleted(updatedCompleted);
+  const handleEditBtn = (editId, itemText) => {
+    setinputValue(itemText);
+    seteditMode(editId);
+  };
+  const handleDeleteBtn = (itemId) => {
+    setText(text.filter((item) => item.id !== itemId));
+  };
+  const handleUndoBtn = (undoId) => {
+    setCompleted(completed.filter((id) => id !== undoId));
   };
 
-  // const increment = () => setcount(count + 1);
-  // const decrement = () => setcount(count - 1);
-
-  // const handleFirstname = (e) => {
-  //   setname({ ...name, firstName: e.target.value });
-  // };
-  // const handleLastname = (e) => {
-  //   setname({ ...name, lastName: e.target.value });
-  // };
-  //initially text is empty, so UI renders empty, and second effect saves that empty before the first effect finishes reading.
-  // And that ruins everything unless we block saving using loading
   useEffect(() => {
-    const savedTodos = localStorage.getItem("todos");
-    const savedCompleted = localStorage.getItem("completed");
+    const savedText = JSON.parse(localStorage.getItem("texts"));
+    const savedComplete = JSON.parse(localStorage.getItem("completed"));
 
-    if (savedTodos) {
-      const parsed = JSON.parse(savedTodos);
-      const withDates = parsed.map((todo) => ({
-        ...todo,
-        createdAt: new Date(todo.createdAt),
+    if (savedText) {
+      const parsedText = savedText.map((item) => ({
+        ...item,
+        createdAt: new Date(item.createdAt),
+        dueDate: new Date(item.dueDate),
+        completedAt: item.completedAt ? new Date(item.completedAt) : null,
       }));
-      setText(withDates);
+      setText(parsedText);
     }
-
-    if (savedCompleted) {
-      setcompleted(JSON.parse(savedCompleted));
-    }
+    if (savedComplete) setCompleted(savedComplete);
     setLoading(false);
   }, []);
+
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem("todos", JSON.stringify(text));
+      localStorage.setItem("texts", JSON.stringify(text));
       localStorage.setItem("completed", JSON.stringify(completed));
     }
   }, [text, completed, loading]);
-  if (loading) return <h3>Loading...</h3>;
+
+  if (loading) {
+    return <h2>Loading your tasks...</h2>; // or a spinner
+  }
+  console.log("Component rendered", text);
+
   return (
     <>
-      <div className="App">
-        {/* <h1>{count}</h1> */}
-        {/* <button onClick={increment}>increment</button>
-      <button onClick={decrement}>decrement</button> */}
-
-        <br />
-        <br />
-
-        {/* <input
-        type="text"
-        onChange={handleFirstname}
-        placeholder="enter your name here : "
-      />
-      <input
-        type="text"
-        onChange={handleLastname}
-        placeholder="enter your surname here : "
-      /> */}
-        {/* <h3>your name is : {name.firstName}</h3>
-      <h3>your surname is : {name.lastName}</h3> */}
-
-        <h3 style={{ color: "blue" }}>Todo List</h3>
-        <input
-          onChange={handleChange}
-          type="text"
-          placeholder="enter text here"
-          value={inputValue}
-        />
-        <button onClick={handleClick}>value</button>
-
-        {/* Render uncompleted tasks */}
-        {text
-          .map((item, index) => ({ item, index }))
-          .filter(({ index }) => !completed.includes(index))
-          .map(({ item, index }) => (
-            <div className="flex" key={index}>
-              <ul>
-                <li>{item.text}</li>
-                <br />
-                <small>{item.createdAt.toLocaleString()}</small>
-              </ul>
-              <button
-                className="deleteButton"
-                onClick={() => handleComplete(index)}
-              >
-                complete
-              </button>
-              <button
-                className="deleteButton"
-                onClick={() => handleEdit(index)}
-              >
-                edit
-              </button>
-              <button
-                className="deleteButton"
-                onClick={() => handleDelete(index)}
-              >
-                delete
-              </button>
-            </div>
-          ))}
-
-        {/* Render completed tasks */}
-        <div className="completedTodoList">
-          <h3 style={{ color: "green" }}>Completed Todos</h3>
-          {text
-            .map((item, index) => ({ item, index }))
-            .filter(({ index }) => completed.includes(index))
-            .map(({ item, index }) => (
-              <div className="flex" key={index}>
-                <ul>
-                  <li style={{ textDecoration: "line-through" }}>
-                    {item.text}
-                  </li>
-                  <br />
-                  <small>{item.createdAt.toLocaleString()}</small>
-                </ul>
-                <button
-                  className="deleteButton"
-                  onClick={() => handleUndo(index)}
-                >
-                  undo
+      <div className="container">
+        <h1>Todo List</h1>
+        <div className=" input-card">
+          <div className="input-section">
+            <input
+              value={inputValue}
+              className="input"
+              type="text"
+              placeholder="enter your today's task"
+              onChange={handleInputChange}
+            />
+            <DatePicker
+              selected={selectedDate}
+              onChange={(date) => setSelectedDate(date)}
+              customInput={
+                <button className="calendar-icon" title="Pick a date">
+                  <span className="material-symbols-outlined">
+                    calendar_month
+                  </span>
                 </button>
-                <button
-                  className="deleteButton"
-                  onClick={() => handleDelete(index)}
-                >
-                  delete
-                </button>
-              </div>
-            ))}
+              }
+            />
+            <button
+              onClick={handleAddItem}
+              className="addBtn"
+              disabled={isInputEmpty}
+            >
+              {editMode !== null ? "save" : "add"}
+            </button>
+          </div>
         </div>
+
+        <h4>Pending Tasks</h4>
+        {text.length === 0 && (
+          <p style={{ textAlign: "center", marginTop: "20px" }}>
+            No tasks yet. Add one to get started!
+          </p>
+        )}
+
+        <ul>
+          {text
+            .filter((item) => !completed.includes(item.id))
+            .map((item) => (
+              <li className="section pending-Tasks" key={item.id}>
+                <div className="task-content">
+                  <div className="task-text"> {item.text}</div>
+                </div>
+                <small className="timeStamp">
+                  Created:{" "}
+                  {format(new Date(item.createdAt), "dd MMM yyyy, h:mm a")}
+                </small>
+                <br />
+                <small className="timeStamp">
+                  Due: {format(new Date(item.dueDate), "dd MMM yyyy, h:mm a")}
+                </small>
+                <div className="btn-container">
+                  <button
+                    className="completeBtn btns "
+                    onClick={() => handleCompleteBtn(item.id)}
+                  >
+                    complete
+                  </button>
+                  <button
+                    className="editBtn btns "
+                    onClick={() => handleEditBtn(item.id, item.text)}
+                  >
+                    edit
+                  </button>
+                  <button
+                    className="deleteBtn btns "
+                    onClick={() => handleDeleteBtn(item.id)}
+                  >
+                    delete
+                  </button>
+                </div>
+              </li>
+            ))}
+        </ul>
+
+        <h4>Completed Tasks</h4>
+        <ul>
+          {text
+            .filter((item) => completed.includes(item.id))
+            .map((item) => (
+              <li className=" section completed-Tasks " key={item.id}>
+                {item.text}
+                <br />
+                <small className="timeStamp">
+                  Created:{" "}
+                  {format(new Date(item.createdAt), "dd MMM yyyy, h:mm a")}
+                </small>
+                <br />
+                <small className="timeStamp">
+                  Due: {format(new Date(item.dueDate), "dd MMM yyyy, h:mm a")}
+                </small>
+                <br />
+                <small className="timeStamp">
+                  Completed:{" "}
+                  {format(new Date(item.completedAt), "dd MMM yyyy, h:mm a")}
+                </small>
+
+                <div className="btn-container">
+                  <button
+                    className="undoBtn btns "
+                    onClick={() => handleUndoBtn(item.id)}
+                  >
+                    undo
+                  </button>
+                  <button
+                    className="deleteBtn btns "
+                    onClick={() => handleDeleteBtn(item.id)}
+                  >
+                    delete
+                  </button>
+                </div>
+              </li>
+            ))}
+        </ul>
       </div>
     </>
   );
